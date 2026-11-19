@@ -3,19 +3,20 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Ruta Tula - San Pedro | ¿Dónde viene mi combi?</title>
+<title>Ruta Tula - San Pedro | EN VIVO</title>
 <style>
   *{box-sizing:border-box;font-family:Arial,sans-serif}
   body{margin:0;background:#f2f2f2}
-  header{background:#0E7A3E;color:white;padding:14px;text-align:center}
+  header{background:#0E7A3E;color:white;padding:14px;text-align:center;position:sticky;top:0;z-index:10}
   header h1{margin:0;font-size:18px}
-  header p{margin:4px 0 0;font-size:13px;opacity:.9}
-  #map{height:380px;width:100%;border:0}
+  header p{margin:4px 0 0;font-size:13px}
+  .live-dot{display:inline-block;width:10px;height:10px;background:#FF3B30;border-radius:50%;animation:blink 1s infinite}
+  @keyframes blink{50%{opacity:.2}}
+  #map{height:360px;width:100%;border:0}
   .card{margin:10px;background:white;border-radius:12px;padding:12px;box-shadow:0 2px 8px rgba(0,0,0,.1)}
   .card.uno{border-left:6px solid #1976D2}
   .card.dos{border-left:6px solid #FF6F00}
   .top{display:flex;justify-content:space-between;align-items:center}
-  .top b{font-size:16px}
   .eta{font-weight:bold}
   .uno .eta{color:#1976D2} .dos .eta{color:#E65100}
   .btn{width:calc(100% - 20px);margin:10px;background:#25D366;color:white;border:0;padding:15px;border-radius:12px;font-weight:bold;font-size:15px}
@@ -25,79 +26,117 @@
   .detener{background:#D32F2F;color:white}
   select{width:100%;padding:12px;border-radius:10px;border:1px solid #ccc;font-size:15px}
   small{color:#666}
-  .aviso{background:#FFF8E1;padding:10px;margin:10px;border-radius:10px;font-size:13px;text-align:center}
-  .punto{font-size:20px}
+  .badge{font-size:11px;padding:3px 8px;border-radius:20px;color:white}
+  .en-vivo{background:#0E7A3E} .sin-senal{background:#999}
 </style>
 </head>
 <body>
 <header>
   <h1>RUTA TULA - SAN PEDRO</h1>
-  <p>EN VIVO • Unidades 3014 y 3087</p>
+  <p><span class="live-dot"></span> EN VIVO • Unidades 3014 y 3087 • GPS REAL</p>
 </header>
 
-<!-- MAPA DE GOOGLE - Este sí carga siempre -->
-<iframe id="map" src="https://www.google.com/maps?q=Tula+de+Allende+Hidalgo+San+Pedro&z=13&output=embed"></iframe>
-
-<div class="aviso">
-  📍 <b>Mapa real de la ruta</b><br>Abajo ves la ubicación de tus 2 unidades en vivo
-</div>
+<iframe id="map" src="https://www.google.com/maps?q=Tula+de+Allende+Hidalgo&z=13&output=embed"></iframe>
 
 <div class="card uno">
-  <div class="top"><b><span class="punto">🔵</span> UNIDAD 3014</b><span class="eta" id="eta-3014">LLEGA EN 6 MIN</span></div>
-  <p id="info-3014">Va en: La Central • Tiene lugar • 38 km/h</p>
-  <small id="status-3014">🟢 Simulando movimiento - Listo para GPS real</small>
-  <div id="barra-3014" style="background:#E3F2FD;height:8px;border-radius:5px;margin-top:8px"><div id="prog-3014" style="background:#1976D2;height:8px;width:30%;border-radius:5px"></div></div>
+  <div class="top"><b>🔵 UNIDAD 3014</b><span class="eta" id="eta-3014">-- MIN</span></div>
+  <p id="info-3014">Esperando GPS del chofer...</p>
+  <small><span class="badge sin-senal" id="badge-3014">SIN SEÑAL</span> <span id="time-3014">Sin actualizar</span></small>
+  <div style="background:#E3F2FD;height:8px;border-radius:5px;margin-top:8px"><div id="prog-3014" style="background:#1976D2;height:8px;width:10%;border-radius:5px"></div></div>
 </div>
 
 <div class="card dos">
-  <div class="top"><b><span class="punto">🟠</span> UNIDAD 3087</b><span class="eta" id="eta-3087">LLEGA EN 18 MIN</span></div>
-  <p id="info-3087">Va en: Saliendo de San Pedro • Va llena</p>
-  <small id="status-3087">🟢 Simulando movimiento - Listo para GPS real</small>
-  <div style="background:#FFF3E0;height:8px;border-radius:5px;margin-top:8px"><div id="prog-3087" style="background:#FF6F00;height:8px;width:70%;border-radius:5px"></div></div>
+  <div class="top"><b>🟠 UNIDAD 3087</b><span class="eta" id="eta-3087">-- MIN</span></div>
+  <p id="info-3087">Esperando GPS del chofer...</p>
+  <small><span class="badge sin-senal" id="badge-3087">SIN SEÑAL</span> <span id="time-3087">Sin actualizar</span></small>
+  <div style="background:#FFF3E0;height:8px;border-radius:5px;margin-top:8px"><div id="prog-3087" style="background:#FF6F00;height:8px;width:10%;border-radius:5px"></div></div>
 </div>
 
 <button class="btn" onclick="avisar()">📱 AVÍSAME POR WHATSAPP CUANDO FALTEN 5 MIN</button>
 
 <div class="card chofer">
-  <b>👨‍✈️ SOY CHOFER</b><br><small>Elige tu unidad y pulsa Iniciar Ruta. No cierres esta página.</small><br><br>
+  <b>👨‍✈️ SOY CHOFER</b><br><small>Elige tu unidad, dale INICIAR y NO cierres la página. Mantén datos encendidos.</small><br><br>
   <select id="unidad">
     <option value="3014">Unidad 3014</option>
     <option value="3087">Unidad 3087</option>
   </select>
-  <button class="iniciar" onclick="iniciarRuta()">▶ INICIAR RUTA</button>
+  <button class="iniciar" onclick="iniciarRuta()">▶ INICIAR RUTA - TRANSMITIR EN VIVO</button>
   <button class="detener" onclick="detenerRuta()">■ DETENER RUTA</button>
   <p id="gps-status">GPS: apagado</p>
   <p id="mi-ubicacion" style="font-size:13px"></p>
 </div>
 
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
 <script>
-  // Simulación de movimiento - para que veas que sí se actualiza
-  let p1 = 30, p2 = 70;
-  setInterval(()=>{
-    p1 += 5; if(p1>95) p1=5;
-    p2 -= 5; if(p2<5) p2=95;
-    document.getElementById('prog-3014').style.width = p1 + "%";
-    document.getElementById('prog-3087').style.width = p2 + "%";
-    let min1 = Math.max(2, Math.round((100-p1)/8));
-    let min2 = Math.max(2, Math.round(p2/5));
-    document.getElementById('eta-3014').innerText = "LLEGA EN " + min1 + " MIN";
-    document.getElementById('eta-3087').innerText = "LLEGA EN " + min2 + " MIN";
-  }, 3000);
+  const firebaseConfig = {
+    apiKey: "AIzaSyBAnZJjbVfqvRsiKldxfCGyiIJ8rRLv1mc",
+    authDomain: "ruta-tula-sanpedro.firebaseapp.com",
+    databaseURL: "https://ruta-tula-sanpedro-default-rtdb.firebaseio.com",
+    projectId: "ruta-tula-sanpedro",
+    storageBucket: "ruta-tula-sanpedro.firebasestorage.app",
+    messagingSenderId: "375402060776",
+    appId: "1:375402060776:web:f080a5f8f8acbe7f0ae25d"
+  };
+
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+
+  function distanciaKm(lat1, lon1, lat2, lon2){
+    const R=6371, dLat=(lat2-lat1)*Math.PI/180, dLon=(lon2-lon1)*Math.PI/180;
+    const a=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)*Math.sin(dLon/2);
+    return R*2*Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  }
+  const TULA_LAT=20.0528, TULA_LNG=-99.3428;
+
+  function escucharUnidad(unidad){
+    db.ref('unidades/'+unidad).on('value', (snap)=>{
+      const d = snap.val();
+      if(!d) return;
+      const ahora = Date.now();
+      const haceSeg = Math.floor((ahora - d.timestamp)/1000);
+      const km = distanciaKm(d.lat, d.lng, TULA_LAT, TULA_LNG);
+      const min = Math.max(1, Math.round(km / 0.5));
+      document.getElementById('eta-'+unidad).innerText = "LLEGA EN " + min + " MIN";
+      document.getElementById('info-'+unidad).innerText = "Va en: Lat "+d.lat.toFixed(4)+", Lng "+d.lng.toFixed(4)+" • "+Math.round(d.velocidad||0)+" km/h • "+ (d.enRuta ? "En ruta" : "Detenida");
+      document.getElementById('prog-'+unidad).style.width = Math.min(95, Math.max(10, 100 - km*8)) + "%";
+      document.getElementById('time-'+unidad).innerText = "Actualizado hace " + haceSeg + " seg";
+      const badge = document.getElementById('badge-'+unidad);
+      badge.innerText = haceSeg < 30 ? "🟢 EN VIVO" : "🟡 SIN SEÑAL RECIENTE";
+      badge.className = "badge " + (haceSeg < 30 ? "en-vivo" : "sin-senal");
+    });
+  }
+  escucharUnidad('3014');
+  escucharUnidad('3087');
 
   let watchId = null;
+  let lastSend = 0;
   function iniciarRuta(){
     const unidad = document.getElementById('unidad').value;
-    document.getElementById('gps-status').innerText = "GPS: encendido - Unidad " + unidad + " transmitiendo...";
-    document.getElementById('status-'+unidad).innerText = "🟢 EN VIVO con GPS real del chofer";
+    document.getElementById('gps-status').innerText = "GPS: encendido - Unidad " + unidad + " transmitiendo en vivo...";
     if(!navigator.geolocation){ alert("Tu celular no permite GPS"); return; }
     watchId = navigator.geolocation.watchPosition(pos=>{
-      const lat = pos.coords.latitude.toFixed(5), lng = pos.coords.longitude.toFixed(5);
-      document.getElementById('mi-ubicacion').innerText = "Tu ubicación real: " + lat + ", " + lng + " • Velocidad: " + Math.round((pos.coords.speed||0)*3.6) + " km/h";
-      document.getElementById('info-'+unidad).innerText = "Va en: ubicación real GPS • " + Math.round((pos.coords.speed||0)*3.6) + " km/h";
-    }, err=>alert("Activa el permiso de ubicación"), {enableHighAccuracy:true});
+      const lat = pos.coords.latitude, lng = pos.coords.longitude;
+      const vel = Math.round((pos.coords.speed||0)*3.6);
+      document.getElementById('mi-ubicacion').innerText = "Tu ubicación: " + lat.toFixed(5) + ", " + lng.toFixed(5) + " • " + vel + " km/h";
+      const ahora = Date.now();
+      if(ahora - lastSend > 4000){
+        lastSend = ahora;
+        db.ref('unidades/'+unidad).set({
+          lat: lat,
+          lng: lng,
+          velocidad: vel,
+          enRuta: true,
+          timestamp: ahora,
+          unidad: unidad
+        });
+      }
+    }, err=>alert("Activa el permiso de ubicación: " + err.message), {enableHighAccuracy:true, maximumAge:2000});
   }
   function detenerRuta(){
+    const unidad = document.getElementById('unidad').value;
     if(watchId) navigator.geolocation.clearWatch(watchId);
+    db.ref('unidades/'+unidad).update({enRuta:false});
     document.getElementById('gps-status').innerText = "GPS: apagado";
   }
   function avisar(){
