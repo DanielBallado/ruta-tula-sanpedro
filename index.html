@@ -31,7 +31,7 @@
   .en-vivo{background:#0E7A3E} .sin-senal{background:#999}
   .leyenda{display:flex;gap:8px;justify-content:center;font-size:12px;background:white;margin:0 10px;padding:8px;border-radius:0 0 12px 12px}
   .btn-mapa{width:calc(100% - 20px);margin:0 10px 10px;background:#111;color:white;border:0;padding:12px;border-radius:10px;font-size:13px}
-  .pin{width:28px;height:28px;border-radius:50%;border:4px solid white;box-shadow:0 3px 10px rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;font-size:12px}
+  .pin{width:52px;height:30px;border-radius:15px;border:3px solid white;box-shadow:0 3px 10px rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;font-size:13px;white-space:nowrap}
   .pin-azul{background:#1976D2} .pin-naranja{background:#FF6F00}
   .pin-pulso{animation:pulso 1.5s infinite}
   @keyframes pulso{0%{box-shadow:0 0 0 0 rgba(25,118,210,.5)}100%{box-shadow:0 0 0 18px rgba(25,118,210,0)}}
@@ -54,7 +54,9 @@
 
 <div id="map"></div>
 <div class="leyenda">🔵 3014 &nbsp;|&nbsp; 🟠 3087 &nbsp;|&nbsp; 📍 Tula &nbsp;|&nbsp; 🏁 San Pedro</div>
-<button class="btn-mapa" onclick="centrarMapa()">📍 CENTRAR MAPA EN LAS COMBIS</button>
+<button class="btn-mapa" onclick="ver3087()">🟠 CENTRAR EN 3087 - VER DONDE VA</button>
+<button class="btn-mapa" onclick="ver3014()">🔵 CENTRAR EN 3014</button>
+<button class="btn-mapa" onclick="verRuta()">📍 VER TODA LA RUTA TULA - SAN PEDRO</button>
 
 <div class="card uno">
   <div class="top"><b>🔵 UNIDAD 3014</b><span class="eta" id="eta-3014">-- MIN</span></div>
@@ -87,7 +89,6 @@
   };
   firebase.initializeApp(firebaseConfig);
   const db = firebase.database();
-
   let watchId = null, lastSend = 0;
   function iniciarRuta(){
     const unidad = document.getElementById('unidad').value;
@@ -117,28 +118,32 @@
   const TULA = [20.0528, -99.3428];
   const SANPEDRO = [19.9967, -99.3136];
   let map, marker3014, marker3087;
-  function centrarMapa(){ if(map){ map.setView([20.025, -99.328], 13); map.invalidateSize(); } }
+  let pos3014 = null, pos3087 = null;
+  function verRuta(){ if(map){ map.setView([20.025, -99.328], 13); map.invalidateSize(); } }
+  function ver3014(){ if(pos3014){ map.setView([pos3014.lat, pos3014.lng], 15); } else alert("3014 aún no transmite"); }
+  function ver3087(){ if(pos3087){ map.setView([pos3087.lat, pos3087.lng], 15); } else alert("3087 aún no transmite"); }
+  function centrarMapa(){ verRuta(); }
   function distanciaKm(lat1, lon1, lat2, lon2){
     const R=6371, dLat=(lat2-lat1)*Math.PI/180, dLon=(lon2-lon1)*Math.PI/180;
     const a=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)*Math.sin(dLon/2);
     return R*2*Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
   }
   try{
-    map = L.map('map').setView([20.025, -99.328], 13);
-    // FONDO DE GOOGLE - el que sí carga en tu celular, sin API KEY
+    map = L.map('map', {zoomControl:true}).setView([20.025, -99.328], 13);
     L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {maxZoom: 19, attribution: '© Google'}).addTo(map);
-    setTimeout(()=>{ map.invalidateSize(); }, 800);
+    setTimeout(()=>{ map.invalidateSize(); map.setView([20.025, -99.328], 13); }, 800);
     L.marker(TULA).addTo(map).bindPopup("<b>📍 TULA</b>");
     L.marker(SANPEDRO).addTo(map).bindPopup("<b>🏁 SAN PEDRO</b>");
     L.polyline([TULA, SANPEDRO], {color:'#0E7A3E', weight:5, dashArray:'10, 8', opacity:0.8}).addTo(map);
-    function crearPin(colorClass, texto){ return L.divIcon({className:'', html:`<div class="pin ${colorClass} pin-pulso">${texto}</div>`, iconSize:[28,28], iconAnchor:[14,14]}); }
+    function crearPin(colorClass, texto){ return L.divIcon({className:'', html:`<div class="pin ${colorClass} pin-pulso">${texto}</div>`, iconSize:[52,30], iconAnchor:[26,15]}); }
     marker3014 = L.marker(TULA, {icon: crearPin('pin-azul','3014')}).addTo(map).bindPopup("🔵 3014");
-    marker3087 = L.marker(TULA, {icon: crearPin('pin-naranja','3087')}).addTo(map).bindPopup("🟠 3087");
+    marker3087 = L.marker(SANPEDRO, {icon: crearPin('pin-naranja','3087')}).addTo(map).bindPopup("🟠 3087");
   }catch(e){ console.log("Mapa falló", e); }
 
   function escucharUnidad(unidad){
     db.ref('unidades/'+unidad).on('value', (snap)=>{
       const d = snap.val(); if(!d) return;
+      if(unidad==='3014') pos3014 = d; else pos3087 = d;
       const haceSeg = Math.floor((Date.now() - d.timestamp)/1000);
       const km = distanciaKm(d.lat, d.lng, TULA[0], TULA[1]);
       const min = Math.max(1, Math.round(km / 0.5));
@@ -150,10 +155,7 @@
       badge.innerText = haceSeg < 30 ? "🟢 EN VIVO" : "🟡 SIN SEÑAL RECIENTE";
       badge.className = "badge " + (haceSeg < 30 ? "en-vivo" : "sin-senal");
       const marker = unidad === '3014' ? marker3014 : marker3087;
-      if(marker){
-        marker.setLatLng([d.lat, d.lng]);
-        marker.bindPopup(`<b>${unidad==='3014'?'🔵':'🟠'} UNIDAD ${unidad}</b><br>${Math.round(d.velocidad||0)} km/h<br>Llega en ${min} min`);
-      }
+      if(marker){ marker.setLatLng([d.lat, d.lng]); marker.bindPopup(`<b>${unidad==='3014'?'🔵':'🟠'} UNIDAD ${unidad}</b><br>${Math.round(d.velocidad||0)} km/h<br>Llega en ${min} min`); }
     });
   }
   escucharUnidad('3014'); escucharUnidad('3087');
