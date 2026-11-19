@@ -4,15 +4,16 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Ruta Tula - San Pedro | EN VIVO</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
   *{box-sizing:border-box;font-family:Arial,sans-serif}
   body{margin:0;background:#f2f2f2}
-  header{background:#0E7A3E;color:white;padding:14px;text-align:center;position:sticky;top:0;z-index:10}
+  header{background:#0E7A3E;color:white;padding:14px;text-align:center;position:sticky;top:0;z-index:1000}
   header h1{margin:0;font-size:18px}
   header p{margin:4px 0 0;font-size:13px}
   .live-dot{display:inline-block;width:10px;height:10px;background:#FF3B30;border-radius:50%;animation:blink 1s infinite}
   @keyframes blink{50%{opacity:.2}}
-  #map{height:360px;width:100%;border:0}
+  #map{height:420px;width:100%;z-index:1}
   .card{margin:10px;background:white;border-radius:12px;padding:12px;box-shadow:0 2px 8px rgba(0,0,0,.1)}
   .card.uno{border-left:6px solid #1976D2}
   .card.dos{border-left:6px solid #FF6F00}
@@ -28,6 +29,13 @@
   small{color:#666}
   .badge{font-size:11px;padding:3px 8px;border-radius:20px;color:white}
   .en-vivo{background:#0E7A3E} .sin-senal{background:#999}
+  .leyenda{display:flex;gap:10px;justify-content:center;font-size:12px;background:white;margin:0 10px;padding:8px;border-radius:0 0 12px 12px}
+  .btn-mapa{width:calc(100% - 20px);margin:0 10px 10px;background:#111;color:white;border:0;padding:10px;border-radius:10px;font-size:13px}
+  /* Puntitos del mapa */
+  .pin{width:22px;height:22px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,.5)}
+  .pin-azul{background:#1976D2} .pin-naranja{background:#FF6F00}
+  .pin-pulso{animation:pulso 1.5s infinite}
+  @keyframes pulso{0%{box-shadow:0 0 0 0 rgba(25,118,210,.5)}100%{box-shadow:0 0 0 15px rgba(25,118,210,0)}}
 </style>
 </head>
 <body>
@@ -36,7 +44,9 @@
   <p><span class="live-dot"></span> EN VIVO • Unidades 3014 y 3087 • GPS REAL</p>
 </header>
 
-<iframe id="map" src="https://www.google.com/maps?q=Tula+de+Allende+Hidalgo&z=13&output=embed"></iframe>
+<div id="map"></div>
+<div class="leyenda">🔵 3014 &nbsp;|&nbsp; 🟠 3087 &nbsp;|&nbsp; 📍 Tula &nbsp;|&nbsp; 🏁 San Pedro</div>
+<button class="btn-mapa" onclick="centrarMapa()">📍 CENTRAR MAPA EN LAS COMBIS</button>
 
 <div class="card uno">
   <div class="top"><b>🔵 UNIDAD 3014</b><span class="eta" id="eta-3014">-- MIN</span></div>
@@ -66,6 +76,7 @@
   <p id="mi-ubicacion" style="font-size:13px"></p>
 </div>
 
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
 <script>
@@ -78,71 +89,14 @@
     messagingSenderId: "375402060776",
     appId: "1:375402060776:web:f080a5f8f8acbe7f0ae25d"
   };
-
   firebase.initializeApp(firebaseConfig);
   const db = firebase.database();
 
-  function distanciaKm(lat1, lon1, lat2, lon2){
-    const R=6371, dLat=(lat2-lat1)*Math.PI/180, dLon=(lon2-lon1)*Math.PI/180;
-    const a=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)*Math.sin(dLon/2);
-    return R*2*Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-  }
-  const TULA_LAT=20.0528, TULA_LNG=-99.3428;
+  // === MAPA ===
+  const TULA = [20.0528, -99.3428];
+  const SANPEDRO = [19.9967, -99.3136];
+  const map = L.map('map').setView([20.025, -99.328], 13);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom: 19, attribution: '© OpenStreetMap'}).addTo(map);
 
-  function escucharUnidad(unidad){
-    db.ref('unidades/'+unidad).on('value', (snap)=>{
-      const d = snap.val();
-      if(!d) return;
-      const ahora = Date.now();
-      const haceSeg = Math.floor((ahora - d.timestamp)/1000);
-      const km = distanciaKm(d.lat, d.lng, TULA_LAT, TULA_LNG);
-      const min = Math.max(1, Math.round(km / 0.5));
-      document.getElementById('eta-'+unidad).innerText = "LLEGA EN " + min + " MIN";
-      document.getElementById('info-'+unidad).innerText = "Va en: Lat "+d.lat.toFixed(4)+", Lng "+d.lng.toFixed(4)+" • "+Math.round(d.velocidad||0)+" km/h • "+ (d.enRuta ? "En ruta" : "Detenida");
-      document.getElementById('prog-'+unidad).style.width = Math.min(95, Math.max(10, 100 - km*8)) + "%";
-      document.getElementById('time-'+unidad).innerText = "Actualizado hace " + haceSeg + " seg";
-      const badge = document.getElementById('badge-'+unidad);
-      badge.innerText = haceSeg < 30 ? "🟢 EN VIVO" : "🟡 SIN SEÑAL RECIENTE";
-      badge.className = "badge " + (haceSeg < 30 ? "en-vivo" : "sin-senal");
-    });
-  }
-  escucharUnidad('3014');
-  escucharUnidad('3087');
-
-  let watchId = null;
-  let lastSend = 0;
-  function iniciarRuta(){
-    const unidad = document.getElementById('unidad').value;
-    document.getElementById('gps-status').innerText = "GPS: encendido - Unidad " + unidad + " transmitiendo en vivo...";
-    if(!navigator.geolocation){ alert("Tu celular no permite GPS"); return; }
-    watchId = navigator.geolocation.watchPosition(pos=>{
-      const lat = pos.coords.latitude, lng = pos.coords.longitude;
-      const vel = Math.round((pos.coords.speed||0)*3.6);
-      document.getElementById('mi-ubicacion').innerText = "Tu ubicación: " + lat.toFixed(5) + ", " + lng.toFixed(5) + " • " + vel + " km/h";
-      const ahora = Date.now();
-      if(ahora - lastSend > 4000){
-        lastSend = ahora;
-        db.ref('unidades/'+unidad).set({
-          lat: lat,
-          lng: lng,
-          velocidad: vel,
-          enRuta: true,
-          timestamp: ahora,
-          unidad: unidad
-        });
-      }
-    }, err=>alert("Activa el permiso de ubicación: " + err.message), {enableHighAccuracy:true, maximumAge:2000});
-  }
-  function detenerRuta(){
-    const unidad = document.getElementById('unidad').value;
-    if(watchId) navigator.geolocation.clearWatch(watchId);
-    db.ref('unidades/'+unidad).update({enRuta:false});
-    document.getElementById('gps-status').innerText = "GPS: apagado";
-  }
-  function avisar(){
-    const msg = encodeURIComponent("Hola, quiero que me avisen cuando la combi Tula-San Pedro esté a 5 min de mi parada.");
-    window.open("https://wa.me/5217730000000?text="+msg, "_blank");
-  }
-</script>
-</body>
-</html>
+  L.marker(TULA).addTo(map).bindPopup("<b>📍 TULA</b><br>Base / Centro");
+  L.marker(S
