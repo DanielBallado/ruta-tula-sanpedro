@@ -31,10 +31,12 @@
   .en-vivo{background:#0E7A3E} .sin-senal{background:#999}
   .leyenda{display:flex;gap:8px;justify-content:center;font-size:12px;background:white;margin:0 10px;padding:8px;border-radius:0 0 12px 12px}
   .btn-mapa{width:calc(100% - 20px);margin:0 10px 10px;background:#111;color:white;border:0;padding:12px;border-radius:10px;font-size:13px}
+  .btn-borrar{width:calc(100% - 20px);margin:0 10px 10px;background:#FF9800;color:white;border:0;padding:10px;border-radius:10px;font-size:12px}
   .pin{width:52px;height:30px;border-radius:15px;border:3px solid white;box-shadow:0 3px 10px rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;font-size:13px;white-space:nowrap}
   .pin-azul{background:#1976D2} .pin-naranja{background:#FF6F00}
   .pin-pulso{animation:pulso 1.5s infinite}
   @keyframes pulso{0%{box-shadow:0 0 0 0 rgba(25,118,210,.5)}100%{box-shadow:0 0 0 18px rgba(25,118,210,0)}}
+  .yo{background:#111;color:white;padding:8px 12px;border-radius:10px;font-size:13px;text-align:center;margin:10px}
 </style>
 </head>
 <body>
@@ -42,6 +44,8 @@
   <h1>RUTA TULA - SAN PEDRO</h1>
   <p><span class="live-dot"></span> EN VIVO • Unidades 3014 y 3087 • GPS REAL</p>
 </header>
+
+<div id="yo" class="yo">📍 Tu ubicación: detectando... <button onclick="activarMiUbicacion()" style="background:#25D366;border:0;color:white;padding:6px 10px;border-radius:8px;font-weight:bold">ACTIVAR MI UBICACIÓN</button></div>
 
 <div class="card chofer">
   <b>👨‍✈️ SOY CHOFER - TOCA AQUÍ</b><br><small>Elige tu unidad, dale INICIAR y NO cierres la página.</small><br><br>
@@ -53,10 +57,11 @@
 </div>
 
 <div id="map"></div>
-<div class="leyenda">🔵 3014 &nbsp;|&nbsp; 🟠 3087 &nbsp;|&nbsp; 📍 Tula &nbsp;|&nbsp; 🏁 San Pedro</div>
-<button class="btn-mapa" onclick="ver3087()">🟠 CENTRAR EN 3087 - VER DONDE VA</button>
+<div class="leyenda">🔵 3014 &nbsp;|&nbsp; 🟠 3087 &nbsp;|&nbsp; 📍 Tula &nbsp;|&nbsp; 🏁 San Pedro &nbsp;|&nbsp; 👤 Tú</div>
 <button class="btn-mapa" onclick="ver3014()">🔵 CENTRAR EN 3014</button>
+<button class="btn-mapa" onclick="ver3087()">🟠 CENTRAR EN 3087</button>
 <button class="btn-mapa" onclick="verRuta()">📍 VER TODA LA RUTA TULA - SAN PEDRO</button>
+<button class="btn-borrar" onclick="borrarViejos()">🧹 BORRAR UBICACIONES VIEJAS</button>
 
 <div class="card uno">
   <div class="top"><b>🔵 UNIDAD 3014</b><span class="eta" id="eta-3014">-- MIN</span></div>
@@ -112,21 +117,109 @@
   function avisar(){ const msg = encodeURIComponent("Hola, quiero que me avisen cuando la combi Tula-San Pedro esté a 5 min de mi parada."); window.open("https://wa.me/5217730000000?text="+msg, "_blank"); }
   document.getElementById('btn-iniciar').addEventListener('click', iniciarRuta);
   document.getElementById('btn-detener').addEventListener('click', detenerRuta);
+  function borrarViejos(){
+    if(confirm("¿Borrar la ubicación vieja de las 2 combis? Después tienen que volver a dar INICIAR RUTA.")){
+      db.ref('unidades').remove();
+      alert("Listo, borrado. Ahora cada chofer debe dar INICIAR RUTA de nuevo.");
+      location.reload();
+    }
+  }
 </script>
 
 <script>
   const TULA = [20.0528, -99.3428];
   const SANPEDRO = [19.9967, -99.3136];
-  let map, marker3014, marker3087;
+  let map, marker3014, marker3087, markerYo = null;
   let pos3014 = null, pos3087 = null;
+  let time3014 = 0, time3087 = 0;
+  let miLat = null, miLng = null;
+  let datos3014 = null, datos3087 = null;
+
+  function activarMiUbicacion(){
+    if(!navigator.geolocation) return alert("Tu celular no permite GPS");
+    navigator.geolocation.watchPosition(pos=>{
+      miLat = pos.coords.latitude; miLng = pos.coords.longitude;
+      document.getElementById('yo').innerHTML = "📍 Tú estás en: " + miLat.toFixed(4) + ", " + miLng.toFixed(4) + " • El tiempo ahora es a TI, no a Tula";
+      if(map){
+        if(!markerYo){ markerYo = L.circleMarker([miLat, miLng], {radius:10, color:'white', fillColor:'#111', fillOpacity:1, weight:3}).addTo(map).bindPopup("<b>👤 TÚ ESTÁS AQUÍ</b>"); }
+        else markerYo.setLatLng([miLat, miLng]);
+      }
+      actualizarETAs();
+    }, ()=>{ alert("Dale PERMITIR ubicación para calcular a cuántos minutos está de ti"); }, {enableHighAccuracy:true});
+  }
+
   function verRuta(){ if(map){ map.setView([20.025, -99.328], 13); map.invalidateSize(); } }
-  function ver3014(){ if(pos3014){ map.setView([pos3014.lat, pos3014.lng], 15); } else alert("3014 aún no transmite"); }
-  function ver3087(){ if(pos3087){ map.setView([pos3087.lat, pos3087.lng], 15); } else alert("3087 aún no transmite"); }
-  function centrarMapa(){ verRuta(); }
+  function ver3014(){
+    if(!pos3014) return alert("3014 aún no transmite");
+    const haceMin = Math.floor((Date.now() - time3014)/60000);
+    if(haceMin > 5) return alert("3014 no transmite desde hace " + haceMin + " min.");
+    map.setView([pos3014.lat, pos3014.lng], 15);
+  }
+  function ver3087(){
+    if(!pos3087) return alert("3087 aún no transmite");
+    const haceMin = Math.floor((Date.now() - time3087)/60000);
+    if(haceMin > 5) return alert("3087 no transmite desde hace " + haceMin + " min.");
+    map.setView([pos3087.lat, pos3087.lng], 15);
+  }
   function distanciaKm(lat1, lon1, lat2, lon2){
     const R=6371, dLat=(lat2-lat1)*Math.PI/180, dLon=(lon2-lon1)*Math.PI/180;
     const a=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)*Math.sin(dLon/2);
     return R*2*Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  }
+  // NUEVO: calcula ETA a TI, no a Tula. Si no has activado tu ubicación, usa Tula como antes.
+  function calcularETA(d){
+    if(miLat && miLng){
+      const kmATi = distanciaKm(d.lat, d.lng, miLat, miLng);
+      if(kmATi < 0.15) return {texto: "¡YA LLEGÓ! 🎉", km: kmATi, min: 0};
+      const min = Math.max(1, Math.round(kmATi / 0.5));
+      return {texto: "A " + min + " MIN DE TI", km: kmATi, min: min};
+    } else {
+      const kmTula = distanciaKm(d.lat, d.lng, TULA[0], TULA[1]);
+      const min = Math.max(1, Math.round(kmTula / 0.5));
+      return {texto: min + " MIN A TULA", km: kmTula, min: min};
+    }
+  }
+  function actualizarETAs(){
+    if(datos3014) pintarUnidad('3014', datos3014);
+    if(datos3087) pintarUnidad('3087', datos3087);
+  }
+  // NUEVO: si están encimadas, separa el pin de la 3087 visualmente
+  function posicionVisual(unidad, d){
+    let lat = d.lat, lng = d.lng;
+    if(pos3014 && pos3087){
+      const dist = distanciaKm(pos3014.lat, pos3014.lng, pos3087.lat, pos3087.lng);
+      if(dist < 0.05 && unidad === '3087'){ lng = lng + 0.0012; lat = lat + 0.0004; }
+    }
+    return [lat, lng];
+  }
+  function pintarUnidad(unidad, d){
+    const haceSeg = Math.floor((Date.now() - d.timestamp)/1000);
+    if(haceSeg > 300){
+      document.getElementById('info-'+unidad).innerText = "Sin transmitir desde hace " + Math.floor(haceSeg/60) + " min.";
+      document.getElementById('time-'+unidad).innerText = "Sin transmitir";
+      document.getElementById('badge-'+unidad).innerText = "⚫ SIN TRANSMITIR";
+      document.getElementById('badge-'+unidad).className = "badge sin-senal";
+      document.getElementById('eta-'+unidad).innerText = "-- MIN";
+      return;
+    }
+    if(unidad==='3014'){ pos3014 = d; time3014 = d.timestamp; } else { pos3087 = d; time3087 = d.timestamp; }
+    const eta = calcularETA(d);
+    document.getElementById('eta-'+unidad).innerText = eta.texto;
+    document.getElementById('info-'+unidad).innerText = "Va en: Lat "+d.lat.toFixed(4)+", Lng "+d.lng.toFixed(4)+" • "+Math.round(d.velocidad||0)+" km/h • A "+eta.km.toFixed(2)+" km de ti";
+    document.getElementById('prog-'+unidad).style.width = Math.min(95, Math.max(10, 100 - eta.km*8)) + "%";
+    document.getElementById('time-'+unidad).innerText = "Actualizado hace " + haceSeg + " seg";
+    const badge = document.getElementById('badge-'+unidad);
+    badge.innerText = "🟢 EN VIVO"; badge.className = "badge en-vivo";
+    const marker = unidad === '3014' ? marker3014 : marker3087;
+    if(marker){
+      const posVis = posicionVisual(unidad, d);
+      marker.setLatLng(posVis);
+      marker.bindPopup(`<b>${unidad==='3014'?'🔵':'🟠'} UNIDAD ${unidad}</b><br>${Math.round(d.velocidad||0)} km/h<br>${eta.texto}`);
+      // Si la otra también ya está, re-posicionar la otra para separarlas
+      if(pos3014 && pos3087 && unidad==='3014' && marker3087){
+        marker3087.setLatLng(posicionVisual('3087', pos3087));
+      }
+    }
   }
   try{
     map = L.map('map', {zoomControl:true}).setView([20.025, -99.328], 13);
@@ -143,19 +236,8 @@
   function escucharUnidad(unidad){
     db.ref('unidades/'+unidad).on('value', (snap)=>{
       const d = snap.val(); if(!d) return;
-      if(unidad==='3014') pos3014 = d; else pos3087 = d;
-      const haceSeg = Math.floor((Date.now() - d.timestamp)/1000);
-      const km = distanciaKm(d.lat, d.lng, TULA[0], TULA[1]);
-      const min = Math.max(1, Math.round(km / 0.5));
-      document.getElementById('eta-'+unidad).innerText = "LLEGA EN " + min + " MIN";
-      document.getElementById('info-'+unidad).innerText = "Va en: Lat "+d.lat.toFixed(4)+", Lng "+d.lng.toFixed(4)+" • "+Math.round(d.velocidad||0)+" km/h • "+ (d.enRuta ? "En ruta" : "Detenida");
-      document.getElementById('prog-'+unidad).style.width = Math.min(95, Math.max(10, 100 - km*8)) + "%";
-      document.getElementById('time-'+unidad).innerText = "Actualizado hace " + haceSeg + " seg";
-      const badge = document.getElementById('badge-'+unidad);
-      badge.innerText = haceSeg < 30 ? "🟢 EN VIVO" : "🟡 SIN SEÑAL RECIENTE";
-      badge.className = "badge " + (haceSeg < 30 ? "en-vivo" : "sin-senal");
-      const marker = unidad === '3014' ? marker3014 : marker3087;
-      if(marker){ marker.setLatLng([d.lat, d.lng]); marker.bindPopup(`<b>${unidad==='3014'?'🔵':'🟠'} UNIDAD ${unidad}</b><br>${Math.round(d.velocidad||0)} km/h<br>Llega en ${min} min`); }
+      if(unidad==='3014') datos3014 = d; else datos3087 = d;
+      pintarUnidad(unidad, d);
     });
   }
   escucharUnidad('3014'); escucharUnidad('3087');
