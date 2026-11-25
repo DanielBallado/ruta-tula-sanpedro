@@ -25,10 +25,12 @@
   .chofer button{width:100%;padding:16px;margin-top:8px;border-radius:10px;border:0;font-weight:bold;font-size:16px;cursor:pointer}
   .iniciar{background:#1976D2 !important;color:white !important}
   .detener{background:#D32F2F !important;color:white !important}
+  .en-servicio{background:#0E7A3E !important;color:white !important}
+  .fuera-btn{background:#D32F2F !important;color:white !important}
   select{width:100%;padding:14px;border-radius:10px;border:1px solid #ccc;font-size:16px;background:white}
   small{color:#666}
   .badge{font-size:11px;padding:3px 8px;border-radius:20px;color:white}
-  .en-vivo{background:#0E7A3E} .sin-senal{background:#999}
+  .en-vivo{background:#0E7A3E} .sin-senal{background:#999} .fuera-badge{background:#D32F2F}
   .leyenda{display:flex;gap:8px;justify-content:center;font-size:12px;background:white;margin:0 10px;padding:8px;border-radius:0 0 12px 12px}
   .btn-mapa{width:calc(100% - 20px);margin:0 10px 10px;background:#111;color:white;border:0;padding:12px;border-radius:10px;font-size:13px}
   .btn-borrar{width:calc(100% - 20px);margin:0 10px 10px;background:#FF9800;color:white;border:0;padding:10px;border-radius:10px;font-size:12px}
@@ -37,6 +39,11 @@
   .pin-pulso{animation:pulso 1.5s infinite}
   @keyframes pulso{0%{box-shadow:0 0 0 0 rgba(25,118,210,.5)}100%{box-shadow:0 0 0 18px rgba(25,118,210,0)}}
   .yo{background:#111;color:white;padding:8px 12px;border-radius:10px;font-size:13px;text-align:center;margin:10px}
+  .banner-fuera{background:#FEF3C7;border:3px solid #D97706;padding:12px;border-radius:12px;margin:10px;text-align:center;display:none}
+  .banner-fuera.on{display:block}
+  .card.fuera{opacity:.55;background:#f2f2f2 !important}
+  .msg-fuera{color:#D32F2F;font-weight:bold;font-size:13px;margin:6px 0 0;display:none}
+  .msg-fuera.on{display:block}
 </style>
 </head>
 <body>
@@ -54,7 +61,15 @@
   <button class="detener" id="btn-detener">■ DETENER RUTA</button>
   <p id="gps-status" style="font-weight:bold">GPS: apagado</p>
   <p id="mi-ubicacion" style="font-size:13px"></p>
+  <hr>
+  <b>⛔ ¿HOY NO SALES? DESCANSO / MANTENIMIENTO</b><br><small>Si hoy no trabajas, pon FUERA DE RUTA para que el pasajero no te espere.</small><br><br>
+  <select id="motivo"><option value="Descanso">😴 Descanso / No trabajo hoy</option><option value="Mantenimiento">🔧 Mantenimiento / Taller</option><option value="Descompuesta">⚠️ Descompuesta</option><option value="Otro">Otro motivo</option></select>
+  <button class="en-servicio" onclick="ponerEnServicio()">✅ ESTOY EN SERVICIO - EN RUTA</button>
+  <button class="fuera-btn" onclick="ponerFueraRuta()">⛔ FUERA DE RUTA HOY</button>
+  <p id="estado-chofer" style="font-weight:bold;font-size:14px">Estado: --</p>
 </div>
+
+<div id="banner-fuera" class="banner-fuera"><b id="banner-fuera-txt">⛔ ATENCIÓN</b><br><span id="banner-fuera-sub" style="font-size:13px"></span></div>
 
 <div id="map"></div>
 <div class="leyenda">🔵 3014 &nbsp;|&nbsp; 🟠 3087 &nbsp;|&nbsp; 📍 Tula &nbsp;|&nbsp; 🏁 San Pedro &nbsp;|&nbsp; 👤 Tú</div>
@@ -63,16 +78,18 @@
 <button class="btn-mapa" onclick="verRuta()">📍 VER TODA LA RUTA TULA - SAN PEDRO</button>
 <button class="btn-borrar" onclick="borrarViejos()">🧹 BORRAR UBICACIONES VIEJAS</button>
 
-<div class="card uno">
+<div class="card uno" id="card-3014">
   <div class="top"><b>🔵 UNIDAD 3014</b><span class="eta" id="eta-3014">-- MIN</span></div>
   <p id="info-3014">Esperando GPS del chofer...</p>
+  <p id="msg-3014" class="msg-fuera"></p>
   <small><span class="badge sin-senal" id="badge-3014">SIN SEÑAL</span> <span id="time-3014">Sin actualizar</span></small>
   <div style="background:#E3F2FD;height:8px;border-radius:5px;margin-top:8px"><div id="prog-3014" style="background:#1976D2;height:8px;width:10%;border-radius:5px"></div></div>
 </div>
 
-<div class="card dos">
+<div class="card dos" id="card-3087">
   <div class="top"><b>🟠 UNIDAD 3087</b><span class="eta" id="eta-3087">-- MIN</span></div>
   <p id="info-3087">Esperando GPS del chofer...</p>
+  <p id="msg-3087" class="msg-fuera"></p>
   <small><span class="badge sin-senal" id="badge-3087">SIN SEÑAL</span> <span id="time-3087">Sin actualizar</span></small>
   <div style="background:#FFF3E0;height:8px;border-radius:5px;margin-top:8px"><div id="prog-3087" style="background:#FF6F00;height:8px;width:10%;border-radius:5px"></div></div>
 </div>
@@ -99,13 +116,15 @@
     const unidad = document.getElementById('unidad').value;
     document.getElementById('gps-status').innerText = "GPS: encendido - Unidad " + unidad + " transmitiendo...";
     document.getElementById('gps-status').style.color = "green";
+    // Al iniciar, vuelve a EN SERVICIO automáticamente
+    db.ref('unidades/'+unidad).update({estado:"en_servicio",motivo:"",enRuta:true});
     if(!navigator.geolocation){ alert("Tu celular no permite GPS"); return; }
     watchId = navigator.geolocation.watchPosition(pos=>{
       const lat = pos.coords.latitude, lng = pos.coords.longitude;
       const vel = Math.round((pos.coords.speed||0)*3.6);
       document.getElementById('mi-ubicacion').innerText = "Tu ubicación: " + lat.toFixed(5) + ", " + lng.toFixed(5) + " • " + vel + " km/h";
       const ahora = Date.now();
-      if(ahora - lastSend > 4000){ lastSend = ahora; db.ref('unidades/'+unidad).set({ lat: lat, lng: lng, velocidad: vel, enRuta: true, timestamp: ahora, unidad: unidad }); }
+      if(ahora - lastSend > 4000){ lastSend = ahora; db.ref('unidades/'+unidad).update({ lat: lat, lng: lng, velocidad: vel, enRuta: true, timestamp: ahora, unidad: unidad, estado:"en_servicio", motivo:"" }); }
     }, err=>{ alert("Activa el permiso de ubicación: " + err.message); }, {enableHighAccuracy:true, maximumAge:2000, timeout:10000});
   }
   function detenerRuta(){
@@ -113,6 +132,22 @@
     if(watchId) navigator.geolocation.clearWatch(watchId);
     db.ref('unidades/'+unidad).update({enRuta:false});
     document.getElementById('gps-status').innerText = "GPS: apagado";
+  }
+  // NUEVO: FUERA DE RUTA - CHOFER
+  function ponerFueraRuta(){
+    const unidad = document.getElementById('unidad').value;
+    const motivo = document.getElementById('motivo').value;
+    if(watchId) navigator.geolocation.clearWatch(watchId);
+    db.ref('unidades/'+unidad).update({estado:"fuera_de_ruta",motivo:motivo,enRuta:false,fueraDesde:Date.now()});
+    document.getElementById('gps-status').innerText = "⛔ FUERA DE RUTA por: "+motivo;
+    document.getElementById('estado-chofer').innerText = "Estado: ⛔ FUERA DE RUTA - "+motivo;
+    alert("⛔ Unidad "+unidad+" FUERA DE RUTA por: "+motivo+". El pasajero ya ve que no estás en servicio.");
+  }
+  function ponerEnServicio(){
+    const unidad = document.getElementById('unidad').value;
+    db.ref('unidades/'+unidad).update({estado:"en_servicio",motivo:"",fueraDesde:0});
+    document.getElementById('estado-chofer').innerText = "Estado: ✅ EN SERVICIO";
+    alert("✅ Unidad "+unidad+" EN SERVICIO. Ya le apareces normal al pasajero. Ahora dale INICIAR RUTA para transmitir GPS.");
   }
   function avisar(){ const msg = encodeURIComponent("Hola, quiero que me avisen cuando la combi Tula-San Pedro esté a 5 min de mi parada."); window.open("https://wa.me/5217730000000?text="+msg, "_blank"); }
   document.getElementById('btn-iniciar').addEventListener('click', iniciarRuta);
@@ -134,6 +169,24 @@
   let time3014 = 0, time3087 = 0;
   let miLat = null, miLng = null;
   let datos3014 = null, datos3087 = null;
+  let estadoUnidades = {3014:"en_servicio",3087:"en_servicio"};
+
+  function actualizarBanner(){
+    let fuera=[];
+    if(estadoUnidades["3014"]=="fuera_de_ruta") fuera.push("3014");
+    if(estadoUnidades["3087"]=="fuera_de_ruta") fuera.push("3087");
+    let banner=document.getElementById("banner-fuera");
+    if(fuera.length==0){ banner.classList.remove("on"); return; }
+    banner.classList.add("on");
+    if(fuera.length==2){
+      document.getElementById("banner-fuera-txt").innerText="⛔ ATENCIÓN: LAS 2 UNIDADES ESTÁN FUERA DE RUTA HOY";
+      document.getElementById("banner-fuera-sub").innerText="3014: "+(datos3014&&datos3014.motivo?datos3014.motivo:"")+" • 3087: "+(datos3087&&datos3087.motivo?datos3087.motivo:"")+" • Hoy no hay servicio";
+    } else {
+      let u=fuera[0]; let motivo=u=="3014"?(datos3014&&datos3014.motivo?datos3014.motivo:""):(datos3087&&datos3087.motivo?datos3087.motivo:""); let otra=u=="3014"?"3087":"3014";
+      document.getElementById("banner-fuera-txt").innerText="⛔ ATENCIÓN: LA UNIDAD "+u+" ESTÁ FUERA DE RUTA HOY";
+      document.getElementById("banner-fuera-sub").innerText="Motivo: "+motivo+" • Solo contempla la unidad "+otra+" que sí está en servicio";
+    }
+  }
 
   function activarMiUbicacion(){
     if(!navigator.geolocation) return alert("Tu celular no permite GPS");
@@ -150,12 +203,14 @@
 
   function verRuta(){ if(map){ map.setView([20.025, -99.328], 13); map.invalidateSize(); } }
   function ver3014(){
+    if(estadoUnidades["3014"]=="fuera_de_ruta") return alert("⛔ La 3014 está FUERA DE RUTA hoy por: "+(datos3014&&datos3014.motivo?datos3014.motivo:""));
     if(!pos3014) return alert("3014 aún no transmite");
     const haceMin = Math.floor((Date.now() - time3014)/60000);
     if(haceMin > 5) return alert("3014 no transmite desde hace " + haceMin + " min.");
     map.setView([pos3014.lat, pos3014.lng], 15);
   }
   function ver3087(){
+    if(estadoUnidades["3087"]=="fuera_de_ruta") return alert("⛔ La 3087 está FUERA DE RUTA hoy por: "+(datos3087&&datos3087.motivo?datos3087.motivo:""));
     if(!pos3087) return alert("3087 aún no transmite");
     const haceMin = Math.floor((Date.now() - time3087)/60000);
     if(haceMin > 5) return alert("3087 no transmite desde hace " + haceMin + " min.");
@@ -166,7 +221,6 @@
     const a=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)*Math.sin(dLon/2);
     return R*2*Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
   }
-  // NUEVO: calcula ETA a TI, no a Tula. Si no has activado tu ubicación, usa Tula como antes.
   function calcularETA(d){
     if(miLat && miLng){
       const kmATi = distanciaKm(d.lat, d.lng, miLat, miLng);
@@ -183,7 +237,6 @@
     if(datos3014) pintarUnidad('3014', datos3014);
     if(datos3087) pintarUnidad('3087', datos3087);
   }
-  // NUEVO: si están encimadas, separa el pin de la 3087 visualmente
   function posicionVisual(unidad, d){
     let lat = d.lat, lng = d.lng;
     if(pos3014 && pos3087){
@@ -193,6 +246,24 @@
     return [lat, lng];
   }
   function pintarUnidad(unidad, d){
+    if(d.estado) estadoUnidades[unidad]=d.estado;
+    // NUEVO: FUERA DE RUTA - SE LE AVISA CLARO AL PASAJERO
+    if(d.estado=="fuera_de_ruta"){
+      document.getElementById('eta-'+unidad).innerText = "FUERA DE RUTA";
+      document.getElementById('eta-'+unidad).style.color = "#D32F2F";
+      document.getElementById('info-'+unidad).innerText = "⛔ No está en servicio hoy";
+      document.getElementById('time-'+unidad).innerText = "Motivo: "+(d.motivo||"Fuera de ruta");
+      let badge=document.getElementById('badge-'+unidad); badge.innerText="⛔ FUERA DE RUTA"; badge.className="badge fuera-badge";
+      let msg=document.getElementById('msg-'+unidad); msg.classList.add("on"); msg.innerText="⛔ ESTA UNIDAD ESTÁ FUERA DE RUTA HOY POR: "+(d.motivo||"").toUpperCase()+" • NO LA CONTEMPLES";
+      document.getElementById('card-'+unidad).classList.add("fuera");
+      actualizarBanner();
+      return;
+    }
+    // Volvió a servicio - quita lo gris
+    document.getElementById('eta-'+unidad).style.color = "";
+    document.getElementById('msg-'+unidad).classList.remove("on");
+    document.getElementById('card-'+unidad).classList.remove("fuera");
+    actualizarBanner();
     const haceSeg = Math.floor((Date.now() - d.timestamp)/1000);
     if(haceSeg > 300){
       document.getElementById('info-'+unidad).innerText = "Sin transmitir desde hace " + Math.floor(haceSeg/60) + " min.";
@@ -215,7 +286,6 @@
       const posVis = posicionVisual(unidad, d);
       marker.setLatLng(posVis);
       marker.bindPopup(`<b>${unidad==='3014'?'🔵':'🟠'} UNIDAD ${unidad}</b><br>${Math.round(d.velocidad||0)} km/h<br>${eta.texto}`);
-      // Si la otra también ya está, re-posicionar la otra para separarlas
       if(pos3014 && pos3087 && unidad==='3014' && marker3087){
         marker3087.setLatLng(posicionVisual('3087', pos3087));
       }
