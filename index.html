@@ -1,99 +1,316 @@
-<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>¿Dónde viene mi combi?</title><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"><style>*{box-sizing:border-box;font-family:Arial}body{margin:0;background:#f2f2f2}header{background:#0E7A3E;color:#fff;padding:14px;text-align:center}header h1{margin:0;font-size:19px}#map{height:380px;width:100%;background:#ddd}.card{margin:10px;background:#fff;border-radius:12px;padding:12px}.uno{border-left:6px solid #1976D2}.dos{border-left:6px solid #FF6F00}.eta{font-weight:bold;font-size:18px}.btn{width:calc(100% - 20px);margin:10px;background:#111;color:#fff;border:0;padding:14px;border-radius:10px;font-weight:bold}.chip{display:inline-block;background:#fff;border:2px solid #0E7A3E;color:#0E7A3E;padding:9px 10px;border-radius:20px;font-size:12px;font-weight:bold;margin:3px;cursor:pointer}.chip.on{background:#0E7A3E;color:#fff}.pin{width:54px;height:30px;border-radius:15px;border:3px solid #fff;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:bold}.a{background:#1976D2}.n{background:#FF6F00}.alerta{background:#FFF3CD;border:2px solid #FFC107;padding:10px;border-radius:10px;margin:10px;text-align:center;display:none}.alerta.on{display:block}.banner-fuera{background:#FEF3C7;border:3px solid #D97706;padding:12px;border-radius:12px;margin:10px;text-align:center;display:none}.banner-fuera.on{display:block}.banner-fuera b{color:#92400E;font-size:16px}.fuera{opacity:.55;background:#f2f2f2 !important}</style></head><body>
-<header><h1>🚌 ¿DÓNDE VIENE MI COMBI?</h1><p>● RUTA TULA - SAN PEDRO • EN VIVO</p></header>
-<button class="btn" onclick="ubi()">📍 USAR MI UBICACIÓN</button>
-<p id="yo" style="text-align:center;font-size:13px;margin:5px">O elige tu parada abajo 👇</p>
-<div style="text-align:center;padding:0 5px"><span class="chip" onclick="par('20.057641,-99.3436',0)">🚌 Terminal Tula</span><span class="chip" onclick="par('20.051927,-99.333021',1)">🏛️ Presidencia</span><span class="chip" onclick="par('20.0525,-99.3290',2)">➡️ Entrada Cielito</span><span class="chip" onclick="par('20.0550,-99.3275',3)">⬅️ Salida Cielito</span><span class="chip" onclick="par('20.056564,-99.326398',4)">🦐 Conchal</span></div>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ruta Tula - San Pedro | EN VIVO</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+  *{box-sizing:border-box;font-family:Arial,sans-serif}
+  body{margin:0;background:#f2f2f2}
+  header{background:#0E7A3E;color:white;padding:14px;text-align:center;position:sticky;top:0;z-index:1000}
+  header h1{margin:0;font-size:18px}
+  header p{margin:4px 0 0;font-size:13px}
+  .live-dot{display:inline-block;width:10px;height:10px;background:#FF3B30;border-radius:50%;animation:blink 1s infinite}
+  @keyframes blink{50%{opacity:.2}}
+  #map{height:420px;width:100%;background:#ddd;z-index:1}
+  .card{margin:10px;background:white;border-radius:12px;padding:12px;box-shadow:0 2px 8px rgba(0,0,0,.1)}
+  .card.uno{border-left:6px solid #1976D2}
+  .card.dos{border-left:6px solid #FF6F00}
+  .top{display:flex;justify-content:space-between;align-items:center}
+  .eta{font-weight:bold}
+  .uno .eta{color:#1976D2} .dos .eta{color:#E65100}
+  .btn{width:calc(100% - 20px);margin:10px;background:#25D366;color:white;border:0;padding:15px;border-radius:12px;font-weight:bold;font-size:15px}
+  .chofer{background:#E3F2FD;border:2px solid #1976D2}
+  .chofer button{width:100%;padding:16px;margin-top:8px;border-radius:10px;border:0;font-weight:bold;font-size:16px;cursor:pointer}
+  .iniciar{background:#1976D2 !important;color:white !important}
+  .detener{background:#D32F2F !important;color:white !important}
+  .en-servicio{background:#0E7A3E !important;color:white !important}
+  .fuera-btn{background:#D32F2F !important;color:white !important}
+  select{width:100%;padding:14px;border-radius:10px;border:1px solid #ccc;font-size:16px;background:white}
+  small{color:#666}
+  .badge{font-size:11px;padding:3px 8px;border-radius:20px;color:white}
+  .en-vivo{background:#0E7A3E} .sin-senal{background:#999} .fuera-badge{background:#D32F2F}
+  .leyenda{display:flex;gap:8px;justify-content:center;font-size:12px;background:white;margin:0 10px;padding:8px;border-radius:0 0 12px 12px}
+  .btn-mapa{width:calc(100% - 20px);margin:0 10px 10px;background:#111;color:white;border:0;padding:12px;border-radius:10px;font-size:13px}
+  .btn-borrar{width:calc(100% - 20px);margin:0 10px 10px;background:#FF9800;color:white;border:0;padding:10px;border-radius:10px;font-size:12px}
+  .pin{width:52px;height:30px;border-radius:15px;border:3px solid white;box-shadow:0 3px 10px rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;font-size:13px;white-space:nowrap}
+  .pin-azul{background:#1976D2} .pin-naranja{background:#FF6F00}
+  .pin-pulso{animation:pulso 1.5s infinite}
+  @keyframes pulso{0%{box-shadow:0 0 0 0 rgba(25,118,210,.5)}100%{box-shadow:0 0 0 18px rgba(25,118,210,0)}}
+  .yo{background:#111;color:white;padding:8px 12px;border-radius:10px;font-size:13px;text-align:center;margin:10px}
+  .banner-fuera{background:#FEF3C7;border:3px solid #D97706;padding:12px;border-radius:12px;margin:10px;text-align:center;display:none}
+  .banner-fuera.on{display:block}
+  .card.fuera{opacity:.55;background:#f2f2f2 !important}
+  .msg-fuera{color:#D32F2F;font-weight:bold;font-size:13px;margin:6px 0 0;display:none}
+  .msg-fuera.on{display:block}
+</style>
+</head>
+<body>
+<header>
+  <h1>RUTA TULA - SAN PEDRO</h1>
+  <p><span class="live-dot"></span> EN VIVO • Unidades 3014 y 3087 • GPS REAL</p>
+</header>
+
+<div id="yo" class="yo">📍 Tu ubicación: detectando... <button onclick="activarMiUbicacion()" style="background:#25D366;border:0;color:white;padding:6px 10px;border-radius:8px;font-weight:bold">ACTIVAR MI UBICACIÓN</button></div>
+
+<div class="card chofer">
+  <b>👨‍✈️ SOY CHOFER - TOCA AQUÍ</b><br><small>Elige tu unidad, dale INICIAR y NO cierres la página.</small><br><br>
+  <select id="unidad"><option value="3014">Unidad 3014</option><option value="3087">Unidad 3087</option></select>
+  <button class="iniciar" id="btn-iniciar">▶ INICIAR RUTA - TRANSMITIR EN VIVO</button>
+  <button class="detener" id="btn-detener">■ DETENER RUTA</button>
+  <p id="gps-status" style="font-weight:bold">GPS: apagado</p>
+  <p id="mi-ubicacion" style="font-size:13px"></p>
+  <hr>
+  <b>⛔ ¿HOY NO SALES? DESCANSO / MANTENIMIENTO</b><br><small>Si hoy no trabajas, pon FUERA DE RUTA para que el pasajero no te espere.</small><br><br>
+  <select id="motivo"><option value="Descanso">😴 Descanso / No trabajo hoy</option><option value="Mantenimiento">🔧 Mantenimiento / Taller</option><option value="Descompuesta">⚠️ Descompuesta</option><option value="Otro">Otro motivo</option></select>
+  <button class="en-servicio" onclick="ponerEnServicio()">✅ ESTOY EN SERVICIO - EN RUTA</button>
+  <button class="fuera-btn" onclick="ponerFueraRuta()">⛔ FUERA DE RUTA HOY</button>
+  <p id="estado-chofer" style="font-weight:bold;font-size:14px">Estado: --</p>
+</div>
 
 <div id="banner-fuera" class="banner-fuera"><b id="banner-fuera-txt">⛔ ATENCIÓN</b><br><span id="banner-fuera-sub" style="font-size:13px"></span></div>
 
-<div id="alerta" class="alerta"><b>🔔 ¡TU COMBI ESTÁ A 2 MIN!</b><br><span id="alerta-t"></span></div>
 <div id="map"></div>
-<button class="btn" onclick="map.setView([20.045,-99.333],13)">📍 VER TODA LA RUTA</button>
-<div class="card uno" id="card3014"><b>🔵 UNIDAD 3014 - <span class="eta" id="e3014">-- MIN</span></b><p id="i3014">Esperando GPS...</p><small id="t3014">Sin actualizar</small><p id="msg3014" style="display:none;color:#D32F2F;font-weight:bold;margin:8px 0 0"></p></div>
-<div class="card dos" id="card3087"><b>🟠 UNIDAD 3087 - <span class="eta" id="e3087">-- MIN</span></b><p id="i3087">Esperando GPS...</p><small id="t3087">Sin actualizar</small><p id="msg3087" style="display:none;color:#D32F2F;font-weight:bold;margin:8px 0 0"></p></div>
+<div class="leyenda">🔵 3014 &nbsp;|&nbsp; 🟠 3087 &nbsp;|&nbsp; 📍 Tula &nbsp;|&nbsp; 🏁 San Pedro &nbsp;|&nbsp; 👤 Tú</div>
+<button class="btn-mapa" onclick="ver3014()">🔵 CENTRAR EN 3014</button>
+<button class="btn-mapa" onclick="ver3087()">🟠 CENTRAR EN 3087</button>
+<button class="btn-mapa" onclick="verRuta()">📍 VER TODA LA RUTA TULA - SAN PEDRO</button>
+<button class="btn-borrar" onclick="borrarViejos()">🧹 BORRAR UBICACIONES VIEJAS</button>
+
+<div class="card uno" id="card-3014">
+  <div class="top"><b>🔵 UNIDAD 3014</b><span class="eta" id="eta-3014">-- MIN</span></div>
+  <p id="info-3014">Esperando GPS del chofer...</p>
+  <p id="msg-3014" class="msg-fuera"></p>
+  <small><span class="badge sin-senal" id="badge-3014">SIN SEÑAL</span> <span id="time-3014">Sin actualizar</span></small>
+  <div style="background:#E3F2FD;height:8px;border-radius:5px;margin-top:8px"><div id="prog-3014" style="background:#1976D2;height:8px;width:10%;border-radius:5px"></div></div>
+</div>
+
+<div class="card dos" id="card-3087">
+  <div class="top"><b>🟠 UNIDAD 3087</b><span class="eta" id="eta-3087">-- MIN</span></div>
+  <p id="info-3087">Esperando GPS del chofer...</p>
+  <p id="msg-3087" class="msg-fuera"></p>
+  <small><span class="badge sin-senal" id="badge-3087">SIN SEÑAL</span> <span id="time-3087">Sin actualizar</span></small>
+  <div style="background:#FFF3E0;height:8px;border-radius:5px;margin-top:8px"><div id="prog-3087" style="background:#FF6F00;height:8px;width:10%;border-radius:5px"></div></div>
+</div>
+
+<button class="btn" onclick="avisar()">📱 AVÍSAME POR WHATSAPP CUANDO FALTEN 5 MIN</button>
+
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
 <script>
-firebase.initializeApp({apiKey:"AIzaSyBAnZJjbVfqvRsiKldxfCGyiIJ8rRLv1mc",authDomain:"ruta-tula-sanpedro.firebaseapp.com",databaseURL:"https://ruta-tula-sanpedro-default-rtdb.firebaseio.com",projectId:"ruta-tula-sanpedro"});
-var db=firebase.database(); var TULA=[20.0528,-99.3428], SP=[19.9967,-99.3136];
-var PAR=[["🚌 Terminal Tula",20.057641,-99.3436],["🏛️ Presidencia",20.051927,-99.333021],["➡️ Entrada Cielito",20.0525,-99.329],["⬅️ Salida Cielito",20.055,-99.3275],["🦐 Conchal",20.056564,-99.326398]];
-var map, m3014, m3087, mYo=null, miLat=null, miLng=null, d3014=null, d3087=null, p3014=null, p3087=null, av3014=false, av3087=false, esParada=false, nombreParada="tu parada";
-var marcadoresParadas=[];
-var estadoUnidades={3014:"en_servicio",3087:"en_servicio"};
-function sonarAlerta(){
-  try{ var a=new Audio('https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg'); a.play(); }catch(e){}
-  try{ var ctx=new (window.AudioContext||window.webkitAudioContext)(); for(var i=0;i<3;i++){ var o=ctx.createOscillator(); o.connect(ctx.destination); o.start(ctx.currentTime+i*0.5); o.stop(ctx.currentTime+i*0.5+0.4); } }catch(e){}
-}
-function actualizarBanner(){
-  var fuera=[];
-  if(estadoUnidades["3014"]=="fuera_de_ruta") fuera.push("3014");
-  if(estadoUnidades["3087"]=="fuera_de_ruta") fuera.push("3087");
-  var banner=document.getElementById("banner-fuera");
-  if(fuera.length==0){ banner.classList.remove("on"); return; }
-  banner.classList.add("on");
-  var motivo3014=d3014&&d3014.motivo?d3014.motivo:""; var motivo3087=d3087&&d3087.motivo?d3087.motivo:"";
-  if(fuera.length==2){
-    document.getElementById("banner-fuera-txt").innerText="⛔ ATENCIÓN: LAS 2 UNIDADES ESTÁN FUERA DE RUTA HOY";
-    document.getElementById("banner-fuera-sub").innerText="3014: "+motivo3014+" • 3087: "+motivo3087+" • Hoy no hay servicio, espera la próxima salida";
-  } else {
-    var u=fuera[0]; var motivo=u=="3014"?motivo3014:motivo3087; var otra=u=="3014"?"3087":"3014";
-    document.getElementById("banner-fuera-txt").innerText="⛔ ATENCIÓN: LA UNIDAD "+u+" ESTÁ FUERA DE RUTA HOY";
-    document.getElementById("banner-fuera-sub").innerText="Motivo: "+motivo+" • Solo contempla la unidad "+otra+" que sí está en servicio";
+  const firebaseConfig = {
+    apiKey: "AIzaSyBAnZJjbVfqvRsiKldxfCGyiIJ8rRLv1mc",
+    authDomain: "ruta-tula-sanpedro.firebaseapp.com",
+    databaseURL: "https://ruta-tula-sanpedro-default-rtdb.firebaseio.com",
+    projectId: "ruta-tula-sanpedro",
+    storageBucket: "ruta-tula-sanpedro.firebasestorage.app",
+    messagingSenderId: "375402060776",
+    appId: "1:375402060776:web:f080a5f8f8acbe7f0ae25d"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+  let watchId = null, lastSend = 0;
+  function iniciarRuta(){
+    const unidad = document.getElementById('unidad').value;
+    document.getElementById('gps-status').innerText = "GPS: encendido - Unidad " + unidad + " transmitiendo...";
+    document.getElementById('gps-status').style.color = "green";
+    // Al iniciar, vuelve a EN SERVICIO automáticamente
+    db.ref('unidades/'+unidad).update({estado:"en_servicio",motivo:"",enRuta:true});
+    if(!navigator.geolocation){ alert("Tu celular no permite GPS"); return; }
+    watchId = navigator.geolocation.watchPosition(pos=>{
+      const lat = pos.coords.latitude, lng = pos.coords.longitude;
+      const vel = Math.round((pos.coords.speed||0)*3.6);
+      document.getElementById('mi-ubicacion').innerText = "Tu ubicación: " + lat.toFixed(5) + ", " + lng.toFixed(5) + " • " + vel + " km/h";
+      const ahora = Date.now();
+      if(ahora - lastSend > 4000){ lastSend = ahora; db.ref('unidades/'+unidad).update({ lat: lat, lng: lng, velocidad: vel, enRuta: true, timestamp: ahora, unidad: unidad, estado:"en_servicio", motivo:"" }); }
+    }, err=>{ alert("Activa el permiso de ubicación: " + err.message); }, {enableHighAccuracy:true, maximumAge:2000, timeout:10000});
   }
-}
-function km(a,b,c,d){var R=6371,la=(c-a)*Math.PI/180,lo=(d-b)*Math.PI/180,x=Math.sin(la/2)**2+Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(lo/2)**2;return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x))}
-function ubi(){if(!navigator.geolocation){alert("Abre en Chrome, no en WhatsApp");return}navigator.geolocation.getCurrentPosition(function(p){miLat=p.coords.latitude;miLng=p.coords.longitude;esParada=false;nombreParada="tu ubicación";document.querySelectorAll(".chip").forEach(c=>c.classList.remove("on"));marcadoresParadas.forEach(m=>{m.setStyle({fillColor:"#0E7A3E",radius:9})});document.getElementById("yo").innerHTML="📍 Tú aquí • Tiempo a TI";if(!mYo){mYo=L.circleMarker([miLat,miLng],{radius:10,color:"white",fillColor:"#111",fillOpacity:1,weight:3}).addTo(map)}else mYo.setLatLng([miLat,miLng]);map.setView([miLat,miLng],14);act()},function(e){alert("Dale PERMITIR ubicación. Si ya le diste NO, dale al candadito 🔒 arriba > Ubicación > Permitir")},{enableHighAccuracy:true,timeout:10000})}
-function par(v,i){
-  var s=v.split(","); miLat=parseFloat(s[0]); miLng=parseFloat(s[1]); esParada=true; nombreParada=PAR[i][0];
-  document.querySelectorAll(".chip").forEach(c=>c.classList.remove("on"));
-  document.querySelectorAll(".chip")[i].classList.add("on");
-  marcadoresParadas.forEach(m=>{m.setStyle({fillColor:"#0E7A3E",radius:9,color:"white",weight:3})});
-  if(marcadoresParadas[i]){marcadoresParadas[i].setStyle({fillColor:"#D32F2F",radius:14,color:"white",weight:4}); marcadoresParadas[i].bringToFront();}
-  document.getElementById("yo").innerHTML="🚏 Parada: <b>"+PAR[i][0]+"</b> • 🔴 Punto ROJO";
-  if(!mYo){mYo=L.circleMarker([miLat,miLng],{radius:10,color:"white",fillColor:"#D32F2F",fillOpacity:1,weight:3}).addTo(map)}else{mYo.setLatLng([miLat,miLng]);mYo.setStyle({fillColor:"#D32F2F"})}
-  map.setView([miLat,miLng],15);act();
-}
-function eta(d){if(miLat==null){var k=km(d.lat,d.lng,TULA[0],TULA[1]);return{txt:Math.round(k/0.5)+" MIN A TULA",km:k,min:Math.round(k/0.5)}}var k2=km(d.lat,d.lng,miLat,miLng);if(k2<0.15)return{txt:"¡YA LLEGÓ! 🎉",km:k2,min:0};var m=Math.max(1,Math.round(k2/0.5));return{txt:"A "+m+(esParada?" MIN A TU PARADA":" MIN DE TI"),km:k2,min:m}}
-function act(){if(d3014)pintar("3014",d3014);if(d3087)pintar("3087",d3087)}
-function pintar(u,d){
-  if(d.estado) estadoUnidades[u]=d.estado;
-  // FUERA DE RUTA - SE LE AVISA CLARO AL USUARIO
-  if(d.estado=="fuera_de_ruta"){
-    document.getElementById("e"+u).innerText="FUERA DE RUTA";
-    document.getElementById("e"+u).style.color="#D32F2F";
-    document.getElementById("i"+u).innerText="⛔ No está en servicio hoy";
-    document.getElementById("t"+u).innerText="Motivo: "+(d.motivo||"Fuera de ruta");
-    var msg=document.getElementById("msg"+u); msg.style.display="block"; msg.innerText="⛔ ESTA UNIDAD ESTÁ FUERA DE RUTA HOY POR: "+(d.motivo||"").toUpperCase()+" • NO LA CONTEMPLES";
-    document.getElementById("card"+u).classList.add("fuera");
+  function detenerRuta(){
+    const unidad = document.getElementById('unidad').value;
+    if(watchId) navigator.geolocation.clearWatch(watchId);
+    db.ref('unidades/'+unidad).update({enRuta:false});
+    document.getElementById('gps-status').innerText = "GPS: apagado";
+  }
+  // NUEVO: FUERA DE RUTA - CHOFER
+  function ponerFueraRuta(){
+    const unidad = document.getElementById('unidad').value;
+    const motivo = document.getElementById('motivo').value;
+    if(watchId) navigator.geolocation.clearWatch(watchId);
+    db.ref('unidades/'+unidad).update({estado:"fuera_de_ruta",motivo:motivo,enRuta:false,fueraDesde:Date.now()});
+    document.getElementById('gps-status').innerText = "⛔ FUERA DE RUTA por: "+motivo;
+    document.getElementById('estado-chofer').innerText = "Estado: ⛔ FUERA DE RUTA - "+motivo;
+    alert("⛔ Unidad "+unidad+" FUERA DE RUTA por: "+motivo+". El pasajero ya ve que no estás en servicio.");
+  }
+  function ponerEnServicio(){
+    const unidad = document.getElementById('unidad').value;
+    db.ref('unidades/'+unidad).update({estado:"en_servicio",motivo:"",fueraDesde:0});
+    document.getElementById('estado-chofer').innerText = "Estado: ✅ EN SERVICIO";
+    alert("✅ Unidad "+unidad+" EN SERVICIO. Ya le apareces normal al pasajero. Ahora dale INICIAR RUTA para transmitir GPS.");
+  }
+  function avisar(){ const msg = encodeURIComponent("Hola, quiero que me avisen cuando la combi Tula-San Pedro esté a 5 min de mi parada."); window.open("https://wa.me/5217730000000?text="+msg, "_blank"); }
+  document.getElementById('btn-iniciar').addEventListener('click', iniciarRuta);
+  document.getElementById('btn-detener').addEventListener('click', detenerRuta);
+  function borrarViejos(){
+    if(confirm("¿Borrar la ubicación vieja de las 2 combis? Después tienen que volver a dar INICIAR RUTA.")){
+      db.ref('unidades').remove();
+      alert("Listo, borrado. Ahora cada chofer debe dar INICIAR RUTA de nuevo.");
+      location.reload();
+    }
+  }
+</script>
+
+<script>
+  const TULA = [20.0528, -99.3428];
+  const SANPEDRO = [19.9967, -99.3136];
+  let map, marker3014, marker3087, markerYo = null;
+  let pos3014 = null, pos3087 = null;
+  let time3014 = 0, time3087 = 0;
+  let miLat = null, miLng = null;
+  let datos3014 = null, datos3087 = null;
+  let estadoUnidades = {3014:"en_servicio",3087:"en_servicio"};
+
+  function actualizarBanner(){
+    let fuera=[];
+    if(estadoUnidades["3014"]=="fuera_de_ruta") fuera.push("3014");
+    if(estadoUnidades["3087"]=="fuera_de_ruta") fuera.push("3087");
+    let banner=document.getElementById("banner-fuera");
+    if(fuera.length==0){ banner.classList.remove("on"); return; }
+    banner.classList.add("on");
+    if(fuera.length==2){
+      document.getElementById("banner-fuera-txt").innerText="⛔ ATENCIÓN: LAS 2 UNIDADES ESTÁN FUERA DE RUTA HOY";
+      document.getElementById("banner-fuera-sub").innerText="3014: "+(datos3014&&datos3014.motivo?datos3014.motivo:"")+" • 3087: "+(datos3087&&datos3087.motivo?datos3087.motivo:"")+" • Hoy no hay servicio";
+    } else {
+      let u=fuera[0]; let motivo=u=="3014"?(datos3014&&datos3014.motivo?datos3014.motivo:""):(datos3087&&datos3087.motivo?datos3087.motivo:""); let otra=u=="3014"?"3087":"3014";
+      document.getElementById("banner-fuera-txt").innerText="⛔ ATENCIÓN: LA UNIDAD "+u+" ESTÁ FUERA DE RUTA HOY";
+      document.getElementById("banner-fuera-sub").innerText="Motivo: "+motivo+" • Solo contempla la unidad "+otra+" que sí está en servicio";
+    }
+  }
+
+  function activarMiUbicacion(){
+    if(!navigator.geolocation) return alert("Tu celular no permite GPS");
+    navigator.geolocation.watchPosition(pos=>{
+      miLat = pos.coords.latitude; miLng = pos.coords.longitude;
+      document.getElementById('yo').innerHTML = "📍 Tú estás en: " + miLat.toFixed(4) + ", " + miLng.toFixed(4) + " • El tiempo ahora es a TI, no a Tula";
+      if(map){
+        if(!markerYo){ markerYo = L.circleMarker([miLat, miLng], {radius:10, color:'white', fillColor:'#111', fillOpacity:1, weight:3}).addTo(map).bindPopup("<b>👤 TÚ ESTÁS AQUÍ</b>"); }
+        else markerYo.setLatLng([miLat, miLng]);
+      }
+      actualizarETAs();
+    }, ()=>{ alert("Dale PERMITIR ubicación para calcular a cuántos minutos está de ti"); }, {enableHighAccuracy:true});
+  }
+
+  function verRuta(){ if(map){ map.setView([20.025, -99.328], 13); map.invalidateSize(); } }
+  function ver3014(){
+    if(estadoUnidades["3014"]=="fuera_de_ruta") return alert("⛔ La 3014 está FUERA DE RUTA hoy por: "+(datos3014&&datos3014.motivo?datos3014.motivo:""));
+    if(!pos3014) return alert("3014 aún no transmite");
+    const haceMin = Math.floor((Date.now() - time3014)/60000);
+    if(haceMin > 5) return alert("3014 no transmite desde hace " + haceMin + " min.");
+    map.setView([pos3014.lat, pos3014.lng], 15);
+  }
+  function ver3087(){
+    if(estadoUnidades["3087"]=="fuera_de_ruta") return alert("⛔ La 3087 está FUERA DE RUTA hoy por: "+(datos3087&&datos3087.motivo?datos3087.motivo:""));
+    if(!pos3087) return alert("3087 aún no transmite");
+    const haceMin = Math.floor((Date.now() - time3087)/60000);
+    if(haceMin > 5) return alert("3087 no transmite desde hace " + haceMin + " min.");
+    map.setView([pos3087.lat, pos3087.lng], 15);
+  }
+  function distanciaKm(lat1, lon1, lat2, lon2){
+    const R=6371, dLat=(lat2-lat1)*Math.PI/180, dLon=(lon2-lon1)*Math.PI/180;
+    const a=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)*Math.sin(dLon/2);
+    return R*2*Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  }
+  function calcularETA(d){
+    if(miLat && miLng){
+      const kmATi = distanciaKm(d.lat, d.lng, miLat, miLng);
+      if(kmATi < 0.15) return {texto: "¡YA LLEGÓ! 🎉", km: kmATi, min: 0};
+      const min = Math.max(1, Math.round(kmATi / 0.5));
+      return {texto: "A " + min + " MIN DE TI", km: kmATi, min: min};
+    } else {
+      const kmTula = distanciaKm(d.lat, d.lng, TULA[0], TULA[1]);
+      const min = Math.max(1, Math.round(kmTula / 0.5));
+      return {texto: min + " MIN A TULA", km: kmTula, min: min};
+    }
+  }
+  function actualizarETAs(){
+    if(datos3014) pintarUnidad('3014', datos3014);
+    if(datos3087) pintarUnidad('3087', datos3087);
+  }
+  function posicionVisual(unidad, d){
+    let lat = d.lat, lng = d.lng;
+    if(pos3014 && pos3087){
+      const dist = distanciaKm(pos3014.lat, pos3014.lng, pos3087.lat, pos3087.lng);
+      if(dist < 0.05 && unidad === '3087'){ lng = lng + 0.0012; lat = lat + 0.0004; }
+    }
+    return [lat, lng];
+  }
+  function pintarUnidad(unidad, d){
+    if(d.estado) estadoUnidades[unidad]=d.estado;
+    // NUEVO: FUERA DE RUTA - SE LE AVISA CLARO AL PASAJERO
+    if(d.estado=="fuera_de_ruta"){
+      document.getElementById('eta-'+unidad).innerText = "FUERA DE RUTA";
+      document.getElementById('eta-'+unidad).style.color = "#D32F2F";
+      document.getElementById('info-'+unidad).innerText = "⛔ No está en servicio hoy";
+      document.getElementById('time-'+unidad).innerText = "Motivo: "+(d.motivo||"Fuera de ruta");
+      let badge=document.getElementById('badge-'+unidad); badge.innerText="⛔ FUERA DE RUTA"; badge.className="badge fuera-badge";
+      let msg=document.getElementById('msg-'+unidad); msg.classList.add("on"); msg.innerText="⛔ ESTA UNIDAD ESTÁ FUERA DE RUTA HOY POR: "+(d.motivo||"").toUpperCase()+" • NO LA CONTEMPLES";
+      document.getElementById('card-'+unidad).classList.add("fuera");
+      actualizarBanner();
+      return;
+    }
+    // Volvió a servicio - quita lo gris
+    document.getElementById('eta-'+unidad).style.color = "";
+    document.getElementById('msg-'+unidad).classList.remove("on");
+    document.getElementById('card-'+unidad).classList.remove("fuera");
     actualizarBanner();
-    return;
+    const haceSeg = Math.floor((Date.now() - d.timestamp)/1000);
+    if(haceSeg > 300){
+      document.getElementById('info-'+unidad).innerText = "Sin transmitir desde hace " + Math.floor(haceSeg/60) + " min.";
+      document.getElementById('time-'+unidad).innerText = "Sin transmitir";
+      document.getElementById('badge-'+unidad).innerText = "⚫ SIN TRANSMITIR";
+      document.getElementById('badge-'+unidad).className = "badge sin-senal";
+      document.getElementById('eta-'+unidad).innerText = "-- MIN";
+      return;
+    }
+    if(unidad==='3014'){ pos3014 = d; time3014 = d.timestamp; } else { pos3087 = d; time3087 = d.timestamp; }
+    const eta = calcularETA(d);
+    document.getElementById('eta-'+unidad).innerText = eta.texto;
+    document.getElementById('info-'+unidad).innerText = "Va en: Lat "+d.lat.toFixed(4)+", Lng "+d.lng.toFixed(4)+" • "+Math.round(d.velocidad||0)+" km/h • A "+eta.km.toFixed(2)+" km de ti";
+    document.getElementById('prog-'+unidad).style.width = Math.min(95, Math.max(10, 100 - eta.km*8)) + "%";
+    document.getElementById('time-'+unidad).innerText = "Actualizado hace " + haceSeg + " seg";
+    const badge = document.getElementById('badge-'+unidad);
+    badge.innerText = "🟢 EN VIVO"; badge.className = "badge en-vivo";
+    const marker = unidad === '3014' ? marker3014 : marker3087;
+    if(marker){
+      const posVis = posicionVisual(unidad, d);
+      marker.setLatLng(posVis);
+      marker.bindPopup(`<b>${unidad==='3014'?'🔵':'🟠'} UNIDAD ${unidad}</b><br>${Math.round(d.velocidad||0)} km/h<br>${eta.texto}`);
+      if(pos3014 && pos3087 && unidad==='3014' && marker3087){
+        marker3087.setLatLng(posicionVisual('3087', pos3087));
+      }
+    }
   }
-  // VOLVIÓ A SERVICIO - QUITA TODO LO GRIS
-  document.getElementById("e"+u).style.color="";
-  document.getElementById("msg"+u).style.display="none";
-  document.getElementById("card"+u).classList.remove("fuera");
-  actualizarBanner();
-  var seg=Math.floor((Date.now()-d.timestamp)/1000);
-  if(seg>300){document.getElementById("i"+u).innerText="Sin transmitir hace "+Math.floor(seg/60)+" min";document.getElementById("e"+u).innerText="-- MIN";return}
-  if(u=="3014")p3014=d;else p3087=d;var e=eta(d);
-  if(miLat!=null&&e.min<=2&&e.min>0){if(u=="3014"&&!av3014){av3014=true;aviso("La 3014 a "+e.min+" min")}if(u=="3087"&&!av3087){av3087=true;aviso("La 3087 a "+e.min+" min")}}
-  if(e.min>3){if(u=="3014")av3014=false;if(u=="3087")av3087=false}
-  document.getElementById("e"+u).innerText=e.txt;
-  document.getElementById("i"+u).innerText=Math.round(d.velocidad||0)+" km/h • A "+e.km.toFixed(2)+" km";
-  document.getElementById("t"+u).innerText="Hace "+seg+" seg";
-  var mk=u=="3014"?m3014:m3087;var lat=d.lat,lng=d.lng;
-  if(p3014&&p3087&&km(p3014.lat,p3014.lng,p3087.lat,p3087.lng)<0.05&&u=="3087"){lng+=0.0012;lat+=0.0004}
-  mk.setLatLng([lat,lng]);mk.bindPopup("<b>"+u+"</b><br>"+e.txt)
-}
-function aviso(t){document.getElementById("alerta").classList.add("on");document.getElementById("alerta-t").innerText=t;sonarAlerta();setTimeout(sonarAlerta,1500);setTimeout(sonarAlerta,3000);if(navigator.vibrate)navigator.vibrate([500,200,500])}
-map=L.map("map").setView([20.045,-99.333],13);
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19}).addTo(map);
-setTimeout(()=>{map.invalidateSize()},600);
-L.marker(TULA).addTo(map).bindPopup("📍 TULA");L.marker(SP).addTo(map).bindPopup("🏁 SAN PEDRO");L.polyline([TULA,SP],{color:"#0E7A3E",weight:5,dashArray:"10,8"}).addTo(map);
-PAR.forEach((p,i)=>{var mk=L.circleMarker([p[1],p[2]],{radius:9,color:"white",fillColor:"#0E7A3E",fillOpacity:1,weight:3}).addTo(map).bindPopup("<b>"+p[0]+"</b><br><button onclick=\"par('"+p[1]+","+p[2]+"',"+i+")\" style='background:#D32F2F;color:white;border:0;padding:8px 12px;border-radius:8px;font-weight:bold'>USAR ESTA PARADA</button>");marcadoresParadas.push(mk)});
-function pin(c,t){return L.divIcon({className:"",html:"<div class='pin "+c+"'>"+t+"</div>",iconSize:[54,30],iconAnchor:[27,15]})}
-m3014=L.marker(TULA,{icon:pin("a","3014")}).addTo(map);m3087=L.marker(SP,{icon:pin("n","3087")}).addTo(map);
-function esc(u){db.ref("unidades/"+u).on("value",s=>{var d=s.val();if(!d)return;if(u=="3014")d3014=d;else d3087=d;pintar(u,d)})}
-esc("3014");esc("3087");
-</script></body></html>
+  try{
+    map = L.map('map', {zoomControl:true}).setView([20.025, -99.328], 13);
+    L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {maxZoom: 19, attribution: '© Google'}).addTo(map);
+    setTimeout(()=>{ map.invalidateSize(); map.setView([20.025, -99.328], 13); }, 800);
+    L.marker(TULA).addTo(map).bindPopup("<b>📍 TULA</b>");
+    L.marker(SANPEDRO).addTo(map).bindPopup("<b>🏁 SAN PEDRO</b>");
+    L.polyline([TULA, SANPEDRO], {color:'#0E7A3E', weight:5, dashArray:'10, 8', opacity:0.8}).addTo(map);
+    function crearPin(colorClass, texto){ return L.divIcon({className:'', html:`<div class="pin ${colorClass} pin-pulso">${texto}</div>`, iconSize:[52,30], iconAnchor:[26,15]}); }
+    marker3014 = L.marker(TULA, {icon: crearPin('pin-azul','3014')}).addTo(map).bindPopup("🔵 3014");
+    marker3087 = L.marker(SANPEDRO, {icon: crearPin('pin-naranja','3087')}).addTo(map).bindPopup("🟠 3087");
+  }catch(e){ console.log("Mapa falló", e); }
+
+  function escucharUnidad(unidad){
+    db.ref('unidades/'+unidad).on('value', (snap)=>{
+      const d = snap.val(); if(!d) return;
+      if(unidad==='3014') datos3014 = d; else datos3087 = d;
+      pintarUnidad(unidad, d);
+    });
+  }
+  escucharUnidad('3014'); escucharUnidad('3087');
+</script>
+</body>
+</html>
